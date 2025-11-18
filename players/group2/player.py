@@ -82,7 +82,7 @@ class Player2(Player):
         count = 0
         while True:
             count += 1
-            dx, dy = randint(0, 1000), randint(0, 1000)
+            dx, dy = randint(0, 999), randint(0, 999)
             # print(dx, dy, count)
             # input()
             if distance(dx, dy, self.ark_position[0], self.ark_position[1]) < 1000:

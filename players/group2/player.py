@@ -37,12 +37,60 @@ class Player2(Player):
         self.rain = False
         self.timer = 1008
 
+        self.recent_positions = []  # Track last 50 positions
+        self.max_history = 50
+
+        # Grid-based exploration
+        # Scale down grid map into 100x100 cells (10x10 grid)
+        self.grid_size = 100  
+        self.visited_cells = set()
+        self.current_target_cell = None
+
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
         if not self.sight.cell_is_in_sight(xcell, ycell):
             raise Exception(f"{self} failed to find own cell")
 
         return self.sight.get_cellview_at(xcell, ycell)
+    
+    def _get_next_grid_target(self) -> tuple[float, float]:
+        """Pick the next unvisited grid cell to explore"""
+        # Try to find an unvisited cell
+        # NOTE: can tune later this was arbitrarily picked for now
+        attempts = 0
+        max_attempts = 100
+        
+        while attempts < max_attempts:
+            # Pick a random grid cell
+            grid_x = randint(0, 9)
+            grid_y = randint(0, 9)
+            
+            if (grid_x, grid_y) not in self.visited_cells:
+                self.visited_cells.add((grid_x, grid_y))
+                self.current_target_cell = (grid_x, grid_y)
+                return self._get_grid_center(grid_x, grid_y)
+            
+            attempts += 1
+        
+        # If most cells are visited then it's fine and we'll reset to allow revists
+        self.visited_cells.clear()
+        grid_x = randint(0, 9)
+        grid_y = randint(0, 9)
+        self.visited_cells.add((grid_x, grid_y))
+        self.current_target_cell = (grid_x, grid_y)
+        return self._get_grid_center(grid_x, grid_y)
+    
+    def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
+        """Convert a position to the scaled down 10x10 grid cell coordinates"""
+        grid_x = int(x // self.grid_size)
+        grid_y = int(y // self.grid_size)
+        return (grid_x, grid_y)
+    
+    def _get_grid_center(self, grid_x: int, grid_y: int) -> tuple[float, float]:
+        """Get the center point of the scaled down 10x10 grid cell"""
+        center_x = grid_x * self.grid_size + self.grid_size // 2
+        center_y = grid_y * self.grid_size + self.grid_size // 2
+        return (center_x, center_y)
 
     def animal_to_tuple(self, animal):
         s_id = animal.species_id
@@ -99,6 +147,24 @@ class Player2(Player):
 
         self.sight = snapshot.sight
         self.is_raining = snapshot.is_raining
+
+        # Mark current grid cell(the scaled down 10x10 one that hosts 10 cells) as visited when exploring
+        if self.is_flock_empty():
+            current_grid = self._get_grid_cell(*self.position)
+            self.visited_cells.add(current_grid)
+
+        # Track when we're exploring (not when returning to ark with animals)
+        if self.is_flock_empty() or len(self.recent_positions) == 0:
+            self.recent_positions.append(self.position)
+            # Keep only the most recent positions
+            if len(self.recent_positions) > self.max_history:
+                self.recent_positions.pop(0)
+
+        # Clear some history when at ark to allow fresh exploration cycles(last 20 for now)
+        if snapshot.ark_view is not None and self.is_flock_empty():
+            # NOTE: tune later
+            if len(self.recent_positions) > 20:
+                self.recent_positions = self.recent_positions[-20:]
 
         """Update internal arc information"""
         if snapshot.ark_view is not None:
@@ -164,6 +230,8 @@ class Player2(Player):
 
         # If I have obtained an animal, go to ark
         if not self.is_flock_empty():
+            # Now heading to ark
+            self.direction = self.ark_position  
             return Move(*self.move_towards(*self.ark_position))
 
         """If a helper checked and animal and noted it is already in the arc
@@ -201,18 +269,31 @@ class Player2(Player):
             # animals in other helpers' flocks
             return Move(*self.move_towards(*closest_animal))
 
-        # Move in a random direction
+        # Systematic grid exploration
         if self.mode == "waiting":
-            direction = self._get_random_location()
+            # Pick a new grid cell to explore
+            direction = self._get_next_grid_target()
             self.mode = "moving"
             self.direction = direction
             return Move(*self.move_towards(*self.direction))
-
         else:
-            if self.position == self.direction or self.position == self.ark_position:
-                direction = self._get_random_location()
+            # Check if we've reached our target grid cell
+            if self.current_target_cell:
+                current_grid = self._get_grid_cell(*self.position)
+                if current_grid == self.current_target_cell:
+                    # Reached target, pick new cell
+                    direction = self._get_next_grid_target()
+                    self.mode = "moving"
+                    self.direction = direction
+                    return Move(*self.move_towards(*self.direction))
+            
+            # Check if close to direction target
+            if distance(*self.position, *self.direction) < 10:
+                # Pick new grid cell
+                direction = self._get_next_grid_target()
                 self.mode = "moving"
                 self.direction = direction
                 return Move(*self.move_towards(*self.direction))
             else:
+                # Keep moving toward current target
                 return Move(*self.move_towards(*self.direction))

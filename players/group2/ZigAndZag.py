@@ -1,4 +1,4 @@
-from random import choice, randint
+from random import randint
 
 from core.action import Action, Move, Obtain
 from core.message import Message

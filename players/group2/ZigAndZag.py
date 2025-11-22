@@ -117,9 +117,9 @@ class Player2(Player):
             for animal in cellview.animals:
                 # Only consider animals we care about
                 if (
-                    (animal.species_id, animal.gender) in self.internal_ark
-                    or animal.species_id in self.complete_species
-                ):
+                    animal.species_id,
+                    animal.gender,
+                ) in self.internal_ark or animal.species_id in self.complete_species:
                     continue
 
                 dist = distance(*self.position, cellview.x, cellview.y)
@@ -306,8 +306,10 @@ class Player2(Player):
 
         # If I've reached an animal, I'll obtain it
         cellview = self._get_my_cell()
-        #print(cellview)
-        if len(cellview.animals) > len(self.flock): #So w don't go in unless there's something new
+        # print(cellview)
+        if len(cellview.animals) > len(
+            self.flock
+        ):  # So w don't go in unless there's something new
             for animal in cellview.animals:
                 if (
                     (animal.species_id, animal.gender) not in self.internal_ark
@@ -329,19 +331,19 @@ class Player2(Player):
         """If I see any animals that might not be in the arc, I'll chase the 
         closest one"""
         closest_animals = self._find_closest_animals()
-        #print("number of closest animals:", len(closest_animals), "num in flock:", len(self.flock))
+        # print("number of closest animals:", len(closest_animals), "num in flock:", len(self.flock))
         if len(closest_animals) > len(self.flock):
             # This means the random_player will even approach
             # animals in other helpers' flocks
             target = self.direction  # Default to current direction path
-            #print("Closest animals:", closest_animals)
-            #print("current cell:", (cellview.x, cellview.y))
-            for (ax, ay) in closest_animals:
-                #print(f"Considering animal at: {(ax, ay)}")
+            # print("Closest animals:", closest_animals)
+            # print("current cell:", (cellview.x, cellview.y))
+            for ax, ay in closest_animals:
+                # print(f"Considering animal at: {(ax, ay)}")
                 if ax != cellview.x or ay != cellview.y:
                     target = (ax, ay)
                     break
-            #print(f"!!!!!!!Going to closest animal: {target} from {self.position}")
+            # print(f"!!!!!!!Going to closest animal: {target} from {self.position}")
             return Move(*self.move_towards(*target))
 
         # Systematic grid exploration (w/ zig-zag path)
@@ -354,12 +356,12 @@ class Player2(Player):
                 self.position, direction, steps=15, amplitude=20
             )
             self.direction = self.zigzag_path.pop(0)
-            #print("Zigzag path: ", self.zigzag_path)
+            # print("Zigzag path: ", self.zigzag_path)
             # ZIG ZAG PATH
             return Move(*self.move_towards(*self.direction))
         else:
             # Check if we've reached our target grid cell
-            #print("Current Direction: ", self.direction)
+            # print("Current Direction: ", self.direction)
             if self.current_target_cell:
                 current_grid = self._get_grid_cell(*self.position)
                 if current_grid == self.current_target_cell:
@@ -368,9 +370,9 @@ class Player2(Player):
                     self.mode = "moving"
 
                     self.zigzag_path = self.make_zigzag_path(
-                    self.position, direction, steps=15, amplitude=20
+                        self.position, direction, steps=15, amplitude=20
                     )
-                    #print("NEXT Zigzag path: ", self.zigzag_path)
+                    # print("NEXT Zigzag path: ", self.zigzag_path)
                     self.direction = self.zigzag_path.pop(0)
                     return Move(*self.move_towards(*self.direction))
 

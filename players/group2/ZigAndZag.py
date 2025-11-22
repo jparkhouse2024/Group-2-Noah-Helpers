@@ -107,28 +107,31 @@ class Player2(Player):
             g = 2
         return (s_id, g)
 
-    def _find_closest_animal(self) -> tuple[int, int] | None:
-        closest_animal = None
-        closest_dist = -1
-        closest_pos = None
-        for cellview in self.sight:
-            if len(cellview.animals) > 0:
-                for animal in cellview.animals:
-                    dist = distance(*self.position, cellview.x, cellview.y)
-                    if (
-                        (animal.species_id, animal.gender) not in self.internal_ark
-                        and animal.species_id not in self.complete_species
-                    ):
-                        if closest_animal is None:
-                            closest_animal = animal
-                            closest_dist = dist
-                            closest_pos = (cellview.x, cellview.y)
-                        elif dist < closest_dist:
-                            closest_animal = choice(tuple(cellview.animals))
-                            closest_dist = dist
-                            closest_pos = (cellview.x, cellview.y)
+    def _find_closest_animals(self) -> list[tuple[int, int]]:
+        animals_with_dist = []
 
-        return closest_pos
+        for cellview in self.sight:
+            if len(cellview.animals) == 0:
+                continue
+
+            for animal in cellview.animals:
+                # Only consider animals we care about
+                if (
+                    (animal.species_id, animal.gender) in self.internal_ark
+                    or animal.species_id in self.complete_species
+                ):
+                    continue
+
+                dist = distance(*self.position, cellview.x, cellview.y)
+
+                # Store tuple: (distance, (x, y))
+                animals_with_dist.append((dist, (cellview.x, cellview.y)))
+
+        # Sort by distance
+        animals_with_dist.sort(key=lambda t: t[0])
+
+        # Return just the positions, sorted
+        return [pos for _, pos in animals_with_dist]
 
     def _get_random_location(self) -> tuple[float, float]:
         old_x, old_y = self.position
@@ -281,8 +284,8 @@ class Player2(Player):
         if self.is_raining and not self.rain:
             self.rain = True
 
-        # If I have obtained 3 animals, zig zag back
-        if len(self.flock) == 3:
+        # If I have obtained 4 animals, zig zag back
+        if len(self.flock) == 4:
             # CLEAR zigzag path so we don't continue it later
             self.zigzag_path = None
             self.current_target_cell = None
@@ -293,18 +296,18 @@ class Player2(Player):
 
         """If a helper checked and animal and noted it is already in the arc
         we use this function to force a 10 move walk"""
-        print(f"coundown: {self.countdown}")
         if self.mode == "move_away":
             if self.countdown <= 0:
                 self.mode = "moving"
             else:
                 self.countdown -= 1
+                print(f"coundown: {self.countdown}")
                 return Move(*self.move_towards(*self.direction))
 
         # If I've reached an animal, I'll obtain it
         cellview = self._get_my_cell()
-        print(cellview.animals)
-        if len(cellview.animals) > 0:
+        #print(cellview)
+        if len(cellview.animals) > len(self.flock): #So w don't go in unless there's something new
             for animal in cellview.animals:
                 if (
                     (animal.species_id, animal.gender) not in self.internal_ark
@@ -315,6 +318,7 @@ class Player2(Player):
                     # # This means the random_player will even attempt t
                     # # (unsuccessfully) obtain animals in other helpers' flocks
                     # random_animal = choice(tuple(cellview.animals))
+                    print("obtained animal:", animal, "from", self.position)
                     return Obtain(animal)
             # direction = self._get_random_location()
             self.mode = "move_away"
@@ -324,12 +328,21 @@ class Player2(Player):
 
         """If I see any animals that might not be in the arc, I'll chase the 
         closest one"""
-        closest_animal = self._find_closest_animal()
-        if closest_animal:
+        closest_animals = self._find_closest_animals()
+        #print("number of closest animals:", len(closest_animals), "num in flock:", len(self.flock))
+        if len(closest_animals) > len(self.flock):
             # This means the random_player will even approach
             # animals in other helpers' flocks
-            # print(f"[Clock {self.clock}] Player {self.id} moving toward animal at {closest_animal} from {self.position}")
-            return Move(*self.move_towards(*closest_animal))
+            target = self.direction  # Default to current direction path
+            #print("Closest animals:", closest_animals)
+            #print("current cell:", (cellview.x, cellview.y))
+            for (ax, ay) in closest_animals:
+                #print(f"Considering animal at: {(ax, ay)}")
+                if ax != cellview.x or ay != cellview.y:
+                    target = (ax, ay)
+                    break
+            #print(f"!!!!!!!Going to closest animal: {target} from {self.position}")
+            return Move(*self.move_towards(*target))
 
         # Systematic grid exploration (w/ zig-zag path)
         if self.mode == "waiting":
@@ -341,17 +354,24 @@ class Player2(Player):
                 self.position, direction, steps=15, amplitude=20
             )
             self.direction = self.zigzag_path.pop(0)
+            #print("Zigzag path: ", self.zigzag_path)
             # ZIG ZAG PATH
             return Move(*self.move_towards(*self.direction))
         else:
             # Check if we've reached our target grid cell
+            #print("Current Direction: ", self.direction)
             if self.current_target_cell:
                 current_grid = self._get_grid_cell(*self.position)
                 if current_grid == self.current_target_cell:
                     # Reached target, pick new cell
                     direction = self._get_next_grid_target()
                     self.mode = "moving"
-                    self.direction = direction
+
+                    self.zigzag_path = self.make_zigzag_path(
+                    self.position, direction, steps=15, amplitude=20
+                    )
+                    #print("NEXT Zigzag path: ", self.zigzag_path)
+                    self.direction = self.zigzag_path.pop(0)
                     return Move(*self.move_towards(*self.direction))
 
             # Check if close to direction target
@@ -363,6 +383,7 @@ class Player2(Player):
 
                 # No more zig zag path, pick new grid cell
                 direction = self._get_next_grid_target()
+
                 self.zigzag_path = self.make_zigzag_path(
                     self.position, direction, steps=15, amplitude=20
                 )

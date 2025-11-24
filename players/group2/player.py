@@ -24,13 +24,13 @@ class Player2(Player):
         species_populations: dict[str, int],
     ):
         super().__init__(id, ark_x, ark_y, kind, num_helpers, species_populations)
-        #print(f"I am {self}")
+        # print(f"I am {self}")
 
         self.is_raining = False
         self.hellos_received = []
         self.mode = "waiting"
         # spread out initial direction outward from ark
-        self.direction = (ark_x + randint(-300,300), ark_y + randint(-300,300))
+        self.direction = (ark_x + randint(-300, 300), ark_y + randint(-300, 300))
 
         self.internal_ark = set()
         self.complete_species = set()
@@ -67,8 +67,10 @@ class Player2(Player):
             grid_y = randint(0, 9)
 
             # Avoid visited cells + same cell we are already moving toward
-            if ((grid_x, grid_y) in self.visited_cells or
-                (grid_x, grid_y) == self.current_target_cell):
+            if (grid_x, grid_y) in self.visited_cells or (
+                grid_x,
+                grid_y,
+            ) == self.current_target_cell:
                 attempts += 1
                 continue
 

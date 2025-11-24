@@ -29,7 +29,9 @@ class Player2(Player):
         self.is_raining = False
         self.hellos_received = []
         self.mode = "waiting"
-        self.direction = (0, 0)
+        # spread out initial direction outward from ark
+        self.direction = (ark_x + randint(-300,300), ark_y + randint(-300,300))
+
         self.internal_ark = set()
         self.complete_species = set()
 
@@ -82,8 +84,8 @@ class Player2(Player):
 
     def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
         """Convert a position to the scaled down 10x10 grid cell coordinates"""
-        grid_x = int(x // self.grid_size)
-        grid_y = int(y // self.grid_size)
+        grid_x = max(0, min(9, int(x // self.grid_size)))
+        grid_y = max(0, min(9, int(y // self.grid_size)))
         return (grid_x, grid_y)
 
     def _get_grid_center(self, grid_x: int, grid_y: int) -> tuple[float, float]:

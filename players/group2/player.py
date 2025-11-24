@@ -24,7 +24,7 @@ class Player2(Player):
         species_populations: dict[str, int],
     ):
         super().__init__(id, ark_x, ark_y, kind, num_helpers, species_populations)
-        print(f"I am {self}")
+        #print(f"I am {self}")
 
         self.is_raining = False
         self.hellos_received = []
@@ -63,16 +63,19 @@ class Player2(Player):
         max_attempts = 100
 
         while attempts < max_attempts:
-            # Pick a random grid cell
             grid_x = randint(0, 9)
             grid_y = randint(0, 9)
 
-            if (grid_x, grid_y) not in self.visited_cells:
-                self.visited_cells.add((grid_x, grid_y))
-                self.current_target_cell = (grid_x, grid_y)
-                return self._get_grid_center(grid_x, grid_y)
+            # Avoid visited cells + same cell we are already moving toward
+            if ((grid_x, grid_y) in self.visited_cells or
+                (grid_x, grid_y) == self.current_target_cell):
+                attempts += 1
+                continue
 
-            attempts += 1
+            # Valid new target
+            self.visited_cells.add((grid_x, grid_y))
+            self.current_target_cell = (grid_x, grid_y)
+            return self._get_grid_center(grid_x, grid_y)
 
         # If most cells are visited then it's fine and we'll reset to allow revists
         self.visited_cells.clear()

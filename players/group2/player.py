@@ -149,7 +149,7 @@ class Player2(Player):
         closest_dist = -1
         closest_pos = None
         for cellview in self.sight:
-            if len(cellview.animals) > 0:
+            if len(cellview.animals) > 0 and len(cellview.helpers) == 0:
                 for animal in cellview.animals:
                     dist = distance(*self.position, cellview.x, cellview.y)
                     if (

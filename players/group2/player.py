@@ -49,8 +49,8 @@ class Player2(Player):
         self.visited_cells = set()
         self.current_target_cell = None
 
-        self.zigzag_phase = 1      # +1 or -1
-        self.zigzag_angle = 25     # degrees of sideways wiggle
+        self.zigzag_phase = 1  # +1 or -1
+        self.zigzag_angle = 25  # degrees of sideways wiggle
 
     def _apply_zigzag(self, target: tuple[float, float]) -> tuple[float, float]:
         """Return an overarching zig-zag target toward a point for helpers to explore more overall"""
@@ -60,7 +60,7 @@ class Player2(Player):
         # Compute forward direction vector
         dx = tx - px
         dy = ty - py
-        dist = max(1e-9, math.sqrt(dx*dx + dy*dy))
+        dist = max(1e-9, math.sqrt(dx * dx + dy * dy))
         # Normalize
         dx /= dist
         dy /= dist
@@ -317,7 +317,7 @@ class Player2(Player):
             direction = self._get_next_grid_target()
             self.mode = "moving"
             self.direction = direction
-            #return Move(*self.move_towards(*self.direction))
+            # return Move(*self.move_towards(*self.direction))
             zig = self._apply_zigzag(self.direction)
             return Move(*self.move_towards(*zig))
         else:
@@ -329,7 +329,7 @@ class Player2(Player):
                     direction = self._get_next_grid_target()
                     self.mode = "moving"
                     self.direction = direction
-                    #return Move(*self.move_towards(*self.direction))
+                    # return Move(*self.move_towards(*self.direction))
                     zig = self._apply_zigzag(self.direction)
                     return Move(*self.move_towards(*zig))
 
@@ -339,7 +339,7 @@ class Player2(Player):
                 direction = self._get_next_grid_target()
                 self.mode = "moving"
                 self.direction = direction
-                #return Move(*self.move_towards(*self.direction))
+                # return Move(*self.move_towards(*self.direction))
                 zig = self._apply_zigzag(self.direction)
                 return Move(*self.move_towards(*zig))
             else:

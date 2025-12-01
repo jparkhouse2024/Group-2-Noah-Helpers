@@ -109,7 +109,7 @@ class Player2(Player):
 
     def _find_closest_animals(self) -> list[tuple[int, int]]:
         animals_with_dist = []
-
+        
         for cellview in self.sight:
             if len(cellview.animals) == 0:
                 continue

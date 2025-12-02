@@ -1,4 +1,4 @@
-from random import randint
+from random import choice, randint
 
 from core.action import Action, Move, Obtain
 from core.message import Message
@@ -11,7 +11,6 @@ from core.animal import Gender
 
 def distance(x1: float, y1: float, x2: float, y2: float) -> float:
     return (abs(x1 - x2) ** 2 + abs(y1 - y2) ** 2) ** 0.5
-
 
 class Player2(Player):
     def __init__(
@@ -285,7 +284,7 @@ class Player2(Player):
             self.rain = True
 
         # If I have obtained 4 animals, zig zag back
-        if len(self.flock) == 4:
+        if len(self.flock) == 1:
             # CLEAR zigzag path so we don't continue it later
             self.zigzag_path = None
             self.current_target_cell = None
@@ -301,7 +300,7 @@ class Player2(Player):
                 self.mode = "moving"
             else:
                 self.countdown -= 1
-                print(f"coundown: {self.countdown}")
+                #print(f"coundown: {self.countdown}")
                 return Move(*self.move_towards(*self.direction))
 
         # If I've reached an animal, I'll obtain it
@@ -343,7 +342,23 @@ class Player2(Player):
                 if ax != cellview.x or ay != cellview.y:
                     target = (ax, ay)
                     break
-            # print(f"!!!!!!!Going to closest animal: {target} from {self.position}")
+
+            for ax, ay in closest_animals:
+                # Skip your current cell
+                if (ax, ay) == (cellview.x, cellview.y):
+                    continue
+
+                # Get the CellView for this position
+                candidate_cell = self.sight.get_cellview_at(ax, ay)
+
+                # Skip the cell if there is any **other helper** in it
+                if any(helper.id != self.id for helper in candidate_cell.helpers):
+                    continue
+
+                # Valid target found (cell has no other helpers)
+                target = (ax, ay)
+                break
+            print(f"Helper: {self.id}!! Going to closest animal: {target} from {self.position} \n CELL ANIMALS {cellview.animals} | CELL HELPERS {cellview.helpers}")
             return Move(*self.move_towards(*target))
 
         # Systematic grid exploration (w/ zig-zag path)

@@ -52,11 +52,8 @@ class Player2(Player):
 
         # Setup for helpers to broadcast their target cell
         # helper_id -> (grid_x, grid_y)
-        self.claimed_cells_by_helpers = {}   
-        self.my_grid = (0, 0)   
-
-        #Initial turn
-        self.is_first_turn = True    
+        self.claimed_cells_by_helpers = {}
+        self.my_grid = (0, 0)
 
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
@@ -70,7 +67,6 @@ class Player2(Player):
 
         claimed = set(self.claimed_cells_by_helpers.values())
 
-        #print(f"Player {self.id} has sees claimed cells {claimed}")
         # Tune later: try up to 200 attempts to find an unused cell
         for _ in range(200):
             grid_x = randint(0, 9)
@@ -93,7 +89,6 @@ class Player2(Player):
         grid_y = randint(0, 9)
         self.current_target_cell = (grid_x, grid_y)
         return self._get_grid_center(grid_x, grid_y)
-
 
     def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
         """Convert a position to the scaled down 10x10 grid cell coordinates"""
@@ -295,7 +290,7 @@ class Player2(Player):
                     best_position = (cx, cy)
 
         return best_position
-    
+
     def _encode_grid_cell(self, gx, gy):
         """Encode a 10x10 grid cell into a single byte."""
         # Store grid x in upper 4 bits, grid y in lower 4
@@ -396,7 +391,6 @@ class Player2(Player):
         if self.mode == "waiting":
             # Pick a new grid cell to explore
             direction = self._get_next_grid_target()
-            print(f"Player {self.id}'s first direction is {direction}")
             self.mode = "moving"
             self.direction = direction
             return Move(*self.move_towards(*self.direction))

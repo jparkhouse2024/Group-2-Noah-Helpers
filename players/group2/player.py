@@ -52,8 +52,8 @@ class Player2(Player):
 
         # Setup for helpers to broadcast their target cell
         # helper_id -> (grid_x, grid_y)
-        self.claimed_cells_by_helpers = {}   
-        self.my_grid = (0, 0)       
+        self.claimed_cells_by_helpers = {}
+        self.my_grid = (0, 0)
 
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
@@ -89,7 +89,6 @@ class Player2(Player):
         grid_y = randint(0, 9)
         self.current_target_cell = (grid_x, grid_y)
         return self._get_grid_center(grid_x, grid_y)
-
 
     def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
         """Convert a position to the scaled down 10x10 grid cell coordinates"""
@@ -291,7 +290,7 @@ class Player2(Player):
                     best_position = (cx, cy)
 
         return best_position
-    
+
     def _encode_grid_cell(self, gx, gy):
         """Encode a 10x10 grid cell into a single byte."""
         # Store grid x in upper 4 bits, grid y in lower 4

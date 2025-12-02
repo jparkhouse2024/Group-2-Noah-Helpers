@@ -50,6 +50,9 @@ class Player2(Player):
         self.visited_cells = set()
         self.current_target_cell = None
 
+        self.current_target_animal = None   # (species_id, gender)
+
+
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
         if not self.sight.cell_is_in_sight(xcell, ycell):
@@ -205,17 +208,19 @@ class Player2(Player):
 
         # print(self.flock_id)
 
-        # if I didn't receive any messages, broadcast "hello"
-        # a "hello" message is when a player's id bit is set
-        if len(self.hellos_received) == 0:
-            msg = 1 << (self.id % 8)
+        # Broadcast what animal helper is targeting (species,gender) or 0 if none
+        if self.current_target_animal is not None:
+            species_id, gender_enum = self.current_target_animal
+            # Convert enum -> integer 0/1/2
+            if gender_enum == Gender.Male:
+                gender = 0
+            elif gender_enum == Gender.Female:
+                gender = 1
+            else:
+                gender = 2
+            msg = (species_id << 2) | gender  # up to ~10 bits safe
         else:
-            # else, acknowledge all "hello"'s I got last turn
-            # do this with a bitwise OR of all IDs I got
             msg = 0
-            for hello in self.hellos_received:
-                msg |= hello
-            self.hellos_received = []
 
         if not self.is_message_valid(msg):
             msg = msg & 0xFF
@@ -243,67 +248,84 @@ class Player2(Player):
                 return False
         return True
     
-    def _score_animal(self, animal, current_dist: float) -> float:
-        score = 100.0  # Base score
-        n_i = self.species_populations.get(animal.species_id, 1000)
-
-        # Rarity bonus
-        score += 10000.0 / n_i
-
-        # Ark completeness bonus
-        if animal.species_id not in self.complete_species:
-            score += 50.0
-
-        # Flock complementarity bonus
-        needed_gender = Gender.Female if animal.gender == Gender.Male else Gender.Male
-        needed_gender_int = 1 if needed_gender == Gender.Female else 0
-        # Big reward if this completes a pair
-        if (animal.species_id, needed_gender_int) in self.flock_id:
-            score += 500.0  
-
-        # Distance penalty
-        final_score = score / max(1.0, current_dist)
-
-        return final_score
+    def _get_complement_gender(self, gender: Gender) -> Gender:
+        """ Prioritize opposite gender of animals that helpers currently have """
+        if gender == Gender.Male:
+            return Gender.Female
+        return Gender.Male
     
-    def _find_best_scoring_animal(self):
-        """Return (x,y) of the best-scoring animal in sight."""
-        best_score = -1.0
-        best_position = None
+    def _decode_target_message(self, msg_value: int):
+        """
+        Returns (species_id, gender) or None.
+        Message format: (species_id << 2) | gender
+        """
+        if msg_value == 0:
+            return None
+        species_id = msg_value >> 2
+        gender = msg_value & 0b11
+        return (species_id, gender)
 
-        for cell in self.sight:
-            if len(cell.animals) == 0:
-                continue
+    
+    def _find_best_animal(self, targets_taken: set[tuple[int,int]]) -> tuple[int,int] | None:
+        """
+        Returns location of the best animal:
+        1. Prefer complementary gender to what we already have in flock.
+        2. Avoid animals already targeted by other helpers.
+        3. Otherwise fall back to any useful animal.
+        """
+        # Determine which species/genders we already carry
+        species_in_flock = {a.species_id: a.gender for a in self.flock}
 
-            # Skip animals being handled by another helper
-            if len(cell.helpers) > 0:
-                continue
+        preferred_candidates = []
+        fallback_candidates = []
 
-            cx, cy = cell.x, cell.y
+        for cellview in self.sight:
+            for animal in cellview.animals:
+                key = (animal.species_id, animal.gender)
 
-            for animal in cell.animals:
-                # Skip animals already in ark or already completed
-                if self.animal_to_tuple(animal) in self.internal_ark:
+                # Skip animals already targeted by other helpers
+                if key in targets_taken:
                     continue
+
+                # Skip animals where their species is complete
                 if animal.species_id in self.complete_species:
                     continue
 
-                dist = distance(self.position[0], self.position[1], cx, cy)
-                score = self._score_animal(animal, dist)
+                # Skip animals already known to be in the ark
+                if key in self.internal_ark:
+                    continue
 
-                if score > best_score:
-                    best_score = score
-                    best_position = (cx, cy)
+                if key in self.flock_id:  
+                    continue
 
-        return best_position
+                dist = distance(*self.position, cellview.x, cellview.y)
 
+                # Prioritize pairs: let's go get the opposite gender of what we already have
+                if animal.species_id in species_in_flock:
+                    desired_gender = self._get_complement_gender(species_in_flock[animal.species_id])
+                    if desired_gender == animal.gender:
+                        preferred_candidates.append((dist, (cellview.x, cellview.y)))
+                        continue
+
+                # Fallback: get any useful animal
+                fallback_candidates.append((dist, (cellview.x, cellview.y)))
+
+        # Prefer complementary gender
+        if preferred_candidates:
+            return min(preferred_candidates, key=lambda x: x[0])[1]
+
+        if fallback_candidates:
+            return min(fallback_candidates, key=lambda x: x[0])[1]
+
+        return None
 
     def get_action(self, messages: list[Message]) -> Action | None:
-        # print(self.mode)
-        # print(self.internal_ark)
+        targets_taken = set()
+
         for msg in messages:
-            if 1 << (msg.from_helper.id % 8) == msg.contents:
-                self.hellos_received.append(msg.contents)
+            decoded = self._decode_target_message(msg.contents)
+            if decoded is not None:
+                targets_taken.add(decoded)
 
         # noah shouldn't do anything
         if self.kind == Kind.Noah:
@@ -356,9 +378,16 @@ class Player2(Player):
             return Move(*self.move_towards(*self.direction))
 
         potential_animals = self.potential_animals(cellview.animals)
-        #print(potential_animals)
+        print(potential_animals)
+
+        # If cell has animals but we cannot pick any -> move away
+        #if len(cellview.animals) > 0 and len(potential_animals) == 0:
+        #    self.mode = "move_away"
+        #    self.countdown = 10
+        #    return Move(*self.move_towards(*self.direction))
+
         if len(potential_animals) > 0 and self.is_minHelper(cellview):
-            #print("a")
+            print("a")
             for animal in cellview.animals:
                 if (
                     self.animal_to_tuple(animal) not in self.internal_ark
@@ -370,9 +399,9 @@ class Player2(Player):
             self.mode = "move_away"
             # self.direction = direction
             self.countdown = 10
-            #print("there")
+            print("there")
             return Move(*self.move_towards(*self.direction))
-        #print("else")
+        print("else")
         """If I see any animals that might not be in the arc, I'll chase the 
         closest one"""
         #closest_animal = self._find_closest_animal()
@@ -380,9 +409,35 @@ class Player2(Player):
             # This means the random_player will even approach
             # animals in other helpers' flocks
         #    return Move(*self.move_towards(*closest_animal))
-        best_animal_pos = self._find_best_scoring_animal()
-        if best_animal_pos is not None:
-            return Move(*self.move_towards(*best_animal_pos))
+
+        best_pos = self._find_best_animal(targets_taken)
+
+        if best_pos is not None:
+            # Identify which animal at that location is the one we actually want
+            # (species_id, gender) so we can broadcast it.
+            best_species = None
+            best_gender = None
+            for cell in self.sight:
+                if (cell.x, cell.y) == best_pos:
+                    # Pick the first matching animal
+                    for animal in cell.animals:
+                        tup = (animal.species_id, animal.gender)
+                        if tup not in targets_taken and \
+                        tup not in self.internal_ark and \
+                        animal.species_id not in self.complete_species:
+                            best_species = animal.species_id
+                            best_gender = animal.gender
+                            break
+                    break
+
+            # Record and transmit
+            if best_species is not None:
+                self.current_target_animal = (best_species, best_gender)
+
+            return Move(*self.move_towards(*best_pos))
+        else:
+            self.current_target_animal = None
+
 
         # Systematic grid exploration
         if self.mode == "waiting":

@@ -50,6 +50,11 @@ class Player2(Player):
         self.visited_cells = set()
         self.current_target_cell = None
 
+        # Setup for helpers to broadcast their target cell
+        # helper_id -> (grid_x, grid_y)
+        self.claimed_cells_by_helpers = {}   
+        self.my_grid = (0, 0)       
+
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
         if not self.sight.cell_is_in_sight(xcell, ycell):
@@ -58,36 +63,33 @@ class Player2(Player):
         return self.sight.get_cellview_at(xcell, ycell)
 
     def _get_next_grid_target(self) -> tuple[float, float]:
-        """Pick the next unvisited grid cell to explore"""
-        # Try to find an unvisited cell
-        # NOTE: can tune later this was arbitrarily picked for now
-        attempts = 0
-        max_attempts = 100
+        """Pick the next unclaimed grid cell by another helper to explore"""
 
-        while attempts < max_attempts:
+        claimed = set(self.claimed_cells_by_helpers.values())
+
+        # Tune later: try up to 200 attempts to find an unused cell
+        for _ in range(200):
             grid_x = randint(0, 9)
             grid_y = randint(0, 9)
 
-            # Avoid visited cells + same cell we are already moving toward
-            if (grid_x, grid_y) in self.visited_cells or (
-                grid_x,
-                grid_y,
-            ) == self.current_target_cell:
-                attempts += 1
+            # Avoid cells visited or claimed or already target
+            if (grid_x, grid_y) in claimed:
+                continue
+            if (grid_x, grid_y) == self.current_target_cell:
+                continue
+            if (grid_x, grid_y) in self.visited_cells:
                 continue
 
-            # Valid new target
             self.visited_cells.add((grid_x, grid_y))
             self.current_target_cell = (grid_x, grid_y)
             return self._get_grid_center(grid_x, grid_y)
 
-        # If most cells are visited then it's fine and we'll reset to allow revists
-        self.visited_cells.clear()
+        # If grid is fully used fallback randomly
         grid_x = randint(0, 9)
         grid_y = randint(0, 9)
-        self.visited_cells.add((grid_x, grid_y))
         self.current_target_cell = (grid_x, grid_y)
         return self._get_grid_center(grid_x, grid_y)
+
 
     def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
         """Convert a position to the scaled down 10x10 grid cell coordinates"""
@@ -205,20 +207,13 @@ class Player2(Player):
 
         # print(self.flock_id)
 
-        # if I didn't receive any messages, broadcast "hello"
-        # a "hello" message is when a player's id bit is set
-        if len(self.hellos_received) == 0:
-            msg = 1 << (self.id % 8)
-        else:
-            # else, acknowledge all "hello"'s I got last turn
-            # do this with a bitwise OR of all IDs I got
-            msg = 0
-            for hello in self.hellos_received:
-                msg |= hello
-            self.hellos_received = []
+        # Broadcast my current grid cell ---
+        gx, gy = self._get_grid_cell(*self.position)
+        self.my_grid = (gx, gy)
+        msg = self._encode_grid_cell(gx, gy)
 
         if not self.is_message_valid(msg):
-            msg = msg & 0xFF
+            msg &= 0xFF
 
         return msg
 
@@ -296,13 +291,23 @@ class Player2(Player):
                     best_position = (cx, cy)
 
         return best_position
+    
+    def _encode_grid_cell(self, gx, gy):
+        """Encode a 10x10 grid cell into a single byte."""
+        # Store grid x in upper 4 bits, grid y in lower 4
+        return (gx << 4) | gy
+
+    def _decode_grid_cell(self, byte):
+        """Decode the helper's broadcast message."""
+        # gx was originally shifted left by 4 so reverse
+        gx = (byte >> 4) & 0x0F
+        gy = byte & 0x0F
+        return gx, gy
 
     def get_action(self, messages: list[Message]) -> Action | None:
-        # print(self.mode)
-        # print(self.internal_ark)
         for msg in messages:
-            if 1 << (msg.from_helper.id % 8) == msg.contents:
-                self.hellos_received.append(msg.contents)
+            gx, gy = self._decode_grid_cell(msg.contents)
+            self.claimed_cells_by_helpers[msg.from_helper.id] = (gx, gy)
 
         # noah shouldn't do anything
         if self.kind == Kind.Noah:

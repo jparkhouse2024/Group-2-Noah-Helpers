@@ -135,12 +135,24 @@ class Player2(Player):
 
     def _get_random_location(self) -> tuple[float, float]:
         old_x, old_y = self.position
-        count = 0
         while True:
-            count += 1
-            dx, dy = randint(0, 999), randint(0, 999)
-            # print(dx, dy, count)
-            # input()
+            orientation = random.random()
+            if orientation < 0.5:
+                xrandom = random.random()
+                if xrandom < 0.5:
+                    dx = xrandom**3
+                else:
+                    dx = 1 - (1 - xrandom) ** 3
+                dx = int(999 * dx)
+                dy = int(999 * random.random())
+            else:
+                yrandom = random.random()
+                if yrandom < 0.5:
+                    dy = yrandom**3
+                else:
+                    dy = 1 - (1 - yrandom) ** 3
+                dy = int(999 * dy)
+                dx = int(999 * random.random())
             if distance(dx, dy, self.ark_position[0], self.ark_position[1]) < 1000:
                 break
 

@@ -301,9 +301,9 @@ class Player2(Player):
             return Move(*self.move_towards(*self.direction))
 
         potential_animals = self.potential_animals(cellview.animals)
-        #print(potential_animals)
+        # print(potential_animals)
         if len(potential_animals) > 0 and self.is_minHelper(cellview):
-            #print("a")
+            # print("a")
             for animal in cellview.animals:
                 if (
                     self.animal_to_tuple(animal) not in self.internal_ark
@@ -315,9 +315,9 @@ class Player2(Player):
             self.mode = "move_away"
             # self.direction = direction
             self.countdown = 10
-            #print("there")
+            # print("there")
             return Move(*self.move_towards(*self.direction))
-        #print("else")
+        # print("else")
         """If I see any animals that might not be in the arc, I'll chase the 
         closest one"""
         closest_animal = self._find_closest_animal()

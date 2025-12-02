@@ -242,7 +242,7 @@ class Player2(Player):
             if helper.id < self.id:
                 return False
         return True
-    
+
     def _score_animal(self, animal, current_dist: float) -> float:
         score = 100.0  # Base score
         n_i = self.species_populations.get(animal.species_id, 1000)
@@ -259,13 +259,13 @@ class Player2(Player):
         needed_gender_int = 1 if needed_gender == Gender.Female else 0
         # Big reward if this completes a pair
         if (animal.species_id, needed_gender_int) in self.flock_id:
-            score += 500.0  
+            score += 500.0
 
         # Distance penalty
         final_score = score / max(1.0, current_dist)
 
         return final_score
-    
+
     def _find_best_scoring_animal(self):
         """Return (x,y) of the best-scoring animal in sight."""
         best_score = -1.0
@@ -296,7 +296,6 @@ class Player2(Player):
                     best_position = (cx, cy)
 
         return best_position
-
 
     def get_action(self, messages: list[Message]) -> Action | None:
         # print(self.mode)
@@ -356,9 +355,9 @@ class Player2(Player):
             return Move(*self.move_towards(*self.direction))
 
         potential_animals = self.potential_animals(cellview.animals)
-        #print(potential_animals)
+        # print(potential_animals)
         if len(potential_animals) > 0 and self.is_minHelper(cellview):
-            #print("a")
+            # print("a")
             for animal in cellview.animals:
                 if (
                     self.animal_to_tuple(animal) not in self.internal_ark
@@ -370,15 +369,15 @@ class Player2(Player):
             self.mode = "move_away"
             # self.direction = direction
             self.countdown = 10
-            #print("there")
+            # print("there")
             return Move(*self.move_towards(*self.direction))
-        #print("else")
+        # print("else")
         """If I see any animals that might not be in the arc, I'll chase the 
         closest one"""
-        #closest_animal = self._find_closest_animal()
-        #if closest_animal:
-            # This means the random_player will even approach
-            # animals in other helpers' flocks
+        # closest_animal = self._find_closest_animal()
+        # if closest_animal:
+        # This means the random_player will even approach
+        # animals in other helpers' flocks
         #    return Move(*self.move_towards(*closest_animal))
         best_animal_pos = self._find_best_scoring_animal()
         if best_animal_pos is not None:

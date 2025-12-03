@@ -55,6 +55,33 @@ class Player2(Player):
         self.claimed_cells_by_helpers = {}
         self.my_grid = (0, 0)
 
+        # Memory of very "productive"/rewarding areas
+        self.productive_areas = []  # (x, y, turn_found)
+        self.current_turn = 0
+
+    def _record_animal_position(self, x: float, y: float):
+        """Remember where we found animals"""
+        self.productive_areas.append((x, y, self.current_turn))
+        # Keep onlylast 100 turns for now
+        self.productive_areas = [(px, py, t) for px, py, t in self.productive_areas 
+                                if self.current_turn - t < 100]
+
+    def _get_nearest_productive_area(self) -> tuple[float, float] | None:
+        """Find closest area where we previously found animals"""
+        if not self.productive_areas:
+            return None
+        
+        closest_dist = float('inf')
+        closest_pos = None
+        
+        for px, py, turn in self.productive_areas:
+            dist = distance(*self.position, px, py)
+            if dist < closest_dist and dist > 50:  # Not too close
+                closest_dist = dist
+                closest_pos = (px, py)
+        
+        return closest_pos
+
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
         if not self.sight.cell_is_in_sight(xcell, ycell):
@@ -188,6 +215,8 @@ class Player2(Player):
         self.sight = snapshot.sight
         self.is_raining = snapshot.is_raining
 
+        self.current_turn += 1
+
         # Mark current grid cell(the scaled down 10x10 one that hosts 10 cells) as visited when exploring
         if self.is_flock_empty():
             current_grid = self._get_grid_cell(*self.position)
@@ -293,6 +322,29 @@ class Player2(Player):
         new_score = self._score_animal(new_animal, 1.0)
 
         return new_score > min(scores) * 1.5  # replace weakest animal
+    
+    def _want_species(self, animal) -> bool:
+        """ Explicitly evaluate all conditions if chasing current species is still worth it """
+        sid = animal.species_id
+        # Stop if we already ahve the pair
+        if sid in self.complete_species:
+            return False 
+
+        male = (sid, 0)
+        female = (sid, 1)
+        ark = self.internal_ark
+
+        # If we don't have either gender chase for species
+        if male not in ark and female not in ark:
+            return True
+
+        # If ark only has the opposite gender of the animal then go get 
+        if male in ark and female not in ark and animal.gender == Gender.Female:
+            return True
+        if female in ark and male not in ark and animal.gender == Gender.Male:
+            return True
+
+        return False
 
     def _find_best_scoring_animal(self):
         """Return (x,y) of the best-scoring animal in sight."""
@@ -315,6 +367,10 @@ class Player2(Player):
                     continue
                 if animal.species_id in self.complete_species:
                     continue
+                
+                # Explicitly check all conditions if should still chase animal
+                #if not self._want_species(animal):
+                #    continue
 
                 # Check if should release current and chase better animal
                 if len(self.flock) == 4 and self._release_for_better(animal):
@@ -407,6 +463,8 @@ class Player2(Player):
                     and animal.species_id not in self.complete_species
                     and self.animal_to_tuple(animal) not in self.flock_id
                 ):
+                    # Recrod where we obtained this animal for later use
+                    self._record_animal_position(cellview.x, cellview.y)
                     return Obtain(animal)
             # direction = self._get_random_location()
             self.mode = "move_away"
@@ -425,6 +483,12 @@ class Player2(Player):
         best_animal_pos = self._find_best_scoring_animal()
         if best_animal_pos is not None:
             return Move(*self.move_towards(*best_animal_pos))
+        
+        # NOTE TUNE THIS: chance to revisit productive areas instead of random exploration
+        if randint(1, 100) <= 10:
+            productive = self._get_nearest_productive_area()
+            if productive:
+                return Move(*self.move_towards(*productive))
 
         # Systematic grid exploration
         """Starting from here is the code using self._get_random_location, 

@@ -63,23 +63,26 @@ class Player2(Player):
         """Remember where we found animals"""
         self.productive_areas.append((x, y, self.current_turn))
         # Keep onlylast 100 turns for now
-        self.productive_areas = [(px, py, t) for px, py, t in self.productive_areas 
-                                if self.current_turn - t < 100]
+        self.productive_areas = [
+            (px, py, t)
+            for px, py, t in self.productive_areas
+            if self.current_turn - t < 100
+        ]
 
     def _get_nearest_productive_area(self) -> tuple[float, float] | None:
         """Find closest area where we previously found animals"""
         if not self.productive_areas:
             return None
-        
-        closest_dist = float('inf')
+
+        closest_dist = float("inf")
         closest_pos = None
-        
+
         for px, py, turn in self.productive_areas:
             dist = distance(*self.position, px, py)
             if dist < closest_dist and dist > 50:  # Not too close
                 closest_dist = dist
                 closest_pos = (px, py)
-        
+
         return closest_pos
 
     def _get_my_cell(self) -> CellView:
@@ -322,13 +325,13 @@ class Player2(Player):
         new_score = self._score_animal(new_animal, 1.0)
 
         return new_score > min(scores) * 1.5  # replace weakest animal
-    
+
     def _want_species(self, animal) -> bool:
-        """ Explicitly evaluate all conditions if chasing current species is still worth it """
+        """Explicitly evaluate all conditions if chasing current species is still worth it"""
         sid = animal.species_id
         # Stop if we already ahve the pair
         if sid in self.complete_species:
-            return False 
+            return False
 
         male = (sid, 0)
         female = (sid, 1)
@@ -338,7 +341,7 @@ class Player2(Player):
         if male not in ark and female not in ark:
             return True
 
-        # If ark only has the opposite gender of the animal then go get 
+        # If ark only has the opposite gender of the animal then go get
         if male in ark and female not in ark and animal.gender == Gender.Female:
             return True
         if female in ark and male not in ark and animal.gender == Gender.Male:
@@ -367,9 +370,9 @@ class Player2(Player):
                     continue
                 if animal.species_id in self.complete_species:
                     continue
-                
+
                 # Explicitly check all conditions if should still chase animal
-                #if not self._want_species(animal):
+                # if not self._want_species(animal):
                 #    continue
 
                 # Check if should release current and chase better animal
@@ -483,7 +486,7 @@ class Player2(Player):
         best_animal_pos = self._find_best_scoring_animal()
         if best_animal_pos is not None:
             return Move(*self.move_towards(*best_animal_pos))
-        
+
         # NOTE TUNE THIS: chance to revisit productive areas instead of random exploration
         if randint(1, 100) <= 10:
             productive = self._get_nearest_productive_area()

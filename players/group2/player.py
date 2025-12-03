@@ -82,13 +82,31 @@ class Player2(Player):
 
             self.visited_cells.add((grid_x, grid_y))
             self.current_target_cell = (grid_x, grid_y)
-            return self._get_grid_center(grid_x, grid_y)
+            result = self._get_grid_center(grid_x, grid_y)
+            if (
+                distance(
+                    result[0], result[1], self.ark_position[0], self.ark_position[1]
+                )
+                > 999
+            ):
+                continue
+            return result
 
         # If grid is fully used fallback randomly
-        grid_x = randint(0, 9)
-        grid_y = randint(0, 9)
-        self.current_target_cell = (grid_x, grid_y)
-        return self._get_grid_center(grid_x, grid_y)
+        while True:
+            grid_x = randint(0, 9)
+            grid_y = randint(0, 9)
+            self.visited_cells.add((grid_x, grid_y))
+            self.current_target_cell = (grid_x, grid_y)
+            result = self._get_grid_center(grid_x, grid_y)
+            if (
+                distance(
+                    result[0], result[1], self.ark_position[0], self.ark_position[1]
+                )
+                > 999
+            ):
+                continue
+            return result
 
     def _get_grid_cell(self, x: float, y: float) -> tuple[int, int]:
         """Convert a position to the scaled down 10x10 grid cell coordinates"""
@@ -142,17 +160,17 @@ class Player2(Player):
             if orientation < 0.5:
                 xrandom = random.random()
                 if xrandom < 0.5:
-                    dx = xrandom**3
+                    dx = xrandom**2
                 else:
-                    dx = 1 - (1 - xrandom) ** 3
+                    dx = 1 - (1 - xrandom) ** 2
                 dx = int(999 * dx)
                 dy = int(999 * random.random())
             else:
                 yrandom = random.random()
                 if yrandom < 0.5:
-                    dy = yrandom**3
+                    dy = yrandom**2
                 else:
-                    dy = 1 - (1 - yrandom) ** 3
+                    dy = 1 - (1 - yrandom) ** 2
                 dy = int(999 * dy)
                 dx = int(999 * random.random())
             if distance(dx, dy, self.ark_position[0], self.ark_position[1]) < 1000:
@@ -331,6 +349,7 @@ class Player2(Player):
                 <= 20
             ):
                 self.mode = "get_back"
+                return Move(*self.move_towards(*self.ark_position))
 
         if self.is_raining and not self.rain:
             self.rain = True
@@ -388,30 +407,60 @@ class Player2(Player):
             return Move(*self.move_towards(*best_animal_pos))
 
         # Systematic grid exploration
+        """Starting from here is the code using self._get_random_location, 
+        the one that takes random values and prioretizes edges. """
         if self.mode == "waiting":
             # Pick a new grid cell to explore
-            direction = self._get_next_grid_target()
+            direction = self._get_random_location()
             self.mode = "moving"
             self.direction = direction
             return Move(*self.move_towards(*self.direction))
         else:
             # Check if we've reached our target grid cell
-            if self.current_target_cell:
-                current_grid = self._get_grid_cell(*self.position)
-                if current_grid == self.current_target_cell:
-                    # Reached target, pick new cell
-                    direction = self._get_next_grid_target()
-                    self.mode = "moving"
-                    self.direction = direction
-                    return Move(*self.move_towards(*self.direction))
+            if self.position == self.direction:
+                # Reached target, pick new cell
+                direction = self._get_random_location()
+                self.mode = "moving"
+                self.direction = direction
+                return Move(*self.move_towards(*self.direction))
 
             # Check if close to direction target
             if distance(*self.position, *self.direction) < 10:
                 # Pick new grid cell
-                direction = self._get_next_grid_target()
+                direction = self._get_random_location()
                 self.mode = "moving"
                 self.direction = direction
                 return Move(*self.move_towards(*self.direction))
             else:
                 # Keep moving toward current target
                 return Move(*self.move_towards(*self.direction))
+
+        """Starting from here is the code using self._get_next_grid_target, 
+        It's slightly different from self._get_random_location."""
+        # if self.mode == "waiting":
+        #     # Pick a new grid cell to explore
+        #     direction = self._get_next_grid_target()
+        #     self.mode = "moving"
+        #     self.direction = direction
+        #     return Move(*self.move_towards(*self.direction))
+        # else:
+        #     # Check if we've reached our target grid cell
+        #     if self.current_target_cell:
+        #         current_grid = self._get_grid_cell(*self.position)
+        #         if current_grid == self.current_target_cell:
+        #             # Reached target, pick new cell
+        #             direction = self._get_next_grid_target()
+        #             self.mode = "moving"
+        #             self.direction = direction
+        #             return Move(*self.move_towards(*self.direction))
+
+        #     # Check if close to direction target
+        #     if distance(*self.position, *self.direction) < 10:
+        #         # Pick new grid cell
+        #         direction = self._get_next_grid_target()
+        #         self.mode = "moving"
+        #         self.direction = direction
+        #         return Move(*self.move_towards(*self.direction))
+        #     else:
+        #         # Keep moving toward current target
+        #         return Move(*self.move_towards(*self.direction))

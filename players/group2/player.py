@@ -30,8 +30,8 @@ class Player2(Player):
         self.is_raining = False
         self.hellos_received = []
         self.mode = "waiting"
-        # spread out initial direction outward from ark
-        self.direction = (ark_x + randint(-300, 300), ark_y + randint(-300, 300))
+        # Default direction (To tell if its the first move)
+        self.direction = (-1,-1)
 
         self.internal_ark = set()
         self.complete_species = set()
@@ -54,6 +54,8 @@ class Player2(Player):
         # helper_id -> (grid_x, grid_y)
         self.claimed_cells_by_helpers = {}
         self.my_grid = (0, 0)
+
+        self.is_first_move = True
 
     def _get_my_cell(self) -> CellView:
         xcell, ycell = tuple(map(int, self.position))
@@ -206,10 +208,20 @@ class Player2(Player):
 
         # print(self.flock_id)
 
-        # Broadcast my current grid cell ---
-        gx, gy = self._get_grid_cell(*self.position)
-        self.my_grid = (gx, gy)
-        msg = self._encode_grid_cell(gx, gy)
+        
+        
+
+        # For first move, make the message be the destination grid cell so there are no repeats in the "claimed_cells_by_helpers"
+        if self.direction != (-1,-1):
+            dir_gx, dir_gy = self._get_grid_cell(*self.direction)
+            msg = self._encode_grid_cell(dir_gx, dir_gy)
+            self.is_first_move = False
+            print(f"Player {self.id} first message grid: {(dir_gx, dir_gy)}")
+        # Broadcast my current grid cell if its the first move
+        else:
+            gx, gy = self._get_grid_cell(*self.position)
+            self.my_grid = (gx, gy)
+            msg = self._encode_grid_cell(gx, gy)
 
         if not self.is_message_valid(msg):
             msg &= 0xFF
@@ -307,6 +319,11 @@ class Player2(Player):
         for msg in messages:
             gx, gy = self._decode_grid_cell(msg.contents)
             self.claimed_cells_by_helpers[msg.from_helper.id] = (gx, gy)
+        
+        print(f"Player {self.id} claimed cells by helpers: {self.claimed_cells_by_helpers}")
+        
+        #if self.is_first_move and self.id != 0:
+        #    print(f"Player {self.id} first messages: {messages}")
 
         # noah shouldn't do anything
         if self.kind == Kind.Noah:
@@ -391,6 +408,7 @@ class Player2(Player):
         if self.mode == "waiting":
             # Pick a new grid cell to explore
             direction = self._get_next_grid_target()
+            print(f"Player {self.id} first direction: {direction}")
             self.mode = "moving"
             self.direction = direction
             return Move(*self.move_towards(*self.direction))
@@ -414,4 +432,9 @@ class Player2(Player):
                 return Move(*self.move_towards(*self.direction))
             else:
                 # Keep moving toward current target
+                if self._get_grid_cell(self.direction[0], self.direction[1]) is self.claimed_cells_by_helpers.values():
+                    direction = self._get_next_grid_target()
+                    self.direction = direction
+                    return Move(*self.move_towards(*self.direction))
+                
                 return Move(*self.move_towards(*self.direction))

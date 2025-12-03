@@ -256,7 +256,7 @@ class Player2(Player):
         return True
 
     def _score_animal(self, animal, current_dist: float) -> float:
-        """ Score the animal based off of rarity, ark completeness, pair completion, and distance to ark """
+        """Score the animal based off of rarity, ark completeness, pair completion, and distance to ark"""
         score = 100.0  # Base score
         n_i = self.species_populations.get(animal.species_id, 1000)
 
@@ -278,14 +278,16 @@ class Player2(Player):
         final_score = score / max(1.0, current_dist)
 
         return final_score
-    
+
     def _release_for_better(self, new_animal) -> bool:
-        """ Determine whether to release current flock animal for a higher-value one."""
+        """Determine whether to release current flock animal for a higher-value one."""
         if len(self.flock) < 4:
             return False
 
         scores = [
-            self._score_animal(a, distance(*self.position, self.position[0], self.position[1]))
+            self._score_animal(
+                a, distance(*self.position, self.position[0], self.position[1])
+            )
             for a in self.flock
         ]
         new_score = self._score_animal(new_animal, 1.0)
@@ -316,7 +318,7 @@ class Player2(Player):
 
                 # Check if should release current and chase better animal
                 if len(self.flock) == 4 and self._release_for_better(animal):
-                    return (cx, cy)  
+                    return (cx, cy)
 
                 dist = distance(self.position[0], self.position[1], cx, cy)
                 score = self._score_animal(animal, dist)
